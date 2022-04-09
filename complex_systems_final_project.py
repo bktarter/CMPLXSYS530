@@ -17,7 +17,7 @@ fireMode = 2
 firePeriod = 2
 rebornPeriod = 17 # how many months to reborn
 
-def initialize(trackerSheet,fireModel):
+def initialize(trackerSheet,fireModel,wait):
   global g, nextg, prices, maxCommodityYield, pos, test, df, fireMode,labelDict
 
   if trackerSheet == 1:
@@ -80,8 +80,9 @@ def initialize(trackerSheet,fireModel):
   #crop yield should be tons/acre
   
   #Capacity is determined by Node with Max Yield in any Commodity
-  if fireModel == 1: fireProb = df['ObservedfireProb']
-  if fireModel == 2: fireProb = df['PredictedfireProb']
+  if fireModel == 1: fireProb = df['PredictedfireProb']
+  if fireModel == 2: fireProb = df['ObservedfireProb']
+
   fireprob = np.array(fireProb) / np.sum(np.array(fireProb))
   
   if trackerSheet ==1:
@@ -121,6 +122,8 @@ def initialize(trackerSheet,fireModel):
                 maxCommodityYield[att] = g.nodes[node][attributes]
   
   #where to start first fire
+  for i in range(wait):
+    update(i,False)
   initialFire_index = 10
   g.nodes[initialFire_index]['onFire'] = 1
   g.nodes[initialFire_index]['Destroyed'] = True
@@ -131,7 +134,7 @@ def initialize(trackerSheet,fireModel):
     if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != ' fireProb' and attributes != 'fireDuration' and attributes != 'rebornDuration' and attributes != 'Destroyed':
       g.nodes[initialFire_index][attributes] = 0
   
-def update(itter):
+def update(itter,start=True):
     global g, nextg, pos, test,df, fireMode
     # Update network model
     nextg = g.copy()
@@ -204,7 +207,7 @@ def update(itter):
     g = nextg.copy()
     #test.append(g.nodes[53]['cattleYield'])
     test.append(almondYield_destroyed)
-    fireStart(itter)
+    fireStart(itter,start)
 
 def observe(time):
     global g, nextg, prices, maxCommodityYield, firePeriod, rebornPeriod, pos,labelDict
@@ -219,29 +222,30 @@ def observe(time):
     plt.show()
 
 
-def fireStart(month):
+def fireStart(month,start):
   global g, df, fireMode
-  if 5< month % 12 < 9:
-    for a in g.nodes:
-      fireRoll = random.random()
-      #print('fireRoll:', fireRoll)
+  if start == True:
+    if 5< month % 12 < 9:
+      for a in g.nodes:
+        fireRoll = random.random()
+        #print('fireRoll:', fireRoll)
 
-      if g.nodes[a]['rebornDuration'] == 0 and g.nodes[a]['fireProb'] > fireRoll:
-        #print('probability of fire at node:', g.nodes[a]['fireProb'])
-        #print('start fire at node:', a)
-        g.nodes[a]['onFire'] = 1
-        g.nodes[a]['firstFire'] = True
-        g.nodes[a]['fireDuration'] = firePeriod
-        g.nodes[a]['rebornDuration'] = firePeriod + rebornPeriod
-        for attributes in g.nodes[a]:
-          if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
-            g.nodes[a][attributes] = 0
-        observe(month)
+        if g.nodes[a]['rebornDuration'] == 0 and g.nodes[a]['fireProb'] > fireRoll:
+          #print('probability of fire at node:', g.nodes[a]['fireProb'])
+          #print('start fire at node:', a)
+          g.nodes[a]['onFire'] = 1
+          g.nodes[a]['firstFire'] = True
+          g.nodes[a]['fireDuration'] = firePeriod
+          g.nodes[a]['rebornDuration'] = firePeriod + rebornPeriod
+          for attributes in g.nodes[a]:
+            if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
+              g.nodes[a][attributes] = 0
+          observe(month)
 
 test = [] 
-
-initialize(pick,fireMode)
-for i in range(100):
+delay = 5
+initialize(pick,fireMode,delay)
+for i in range(delay,100):
   update(i)
 
 print(test)
