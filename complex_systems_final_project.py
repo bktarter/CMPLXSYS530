@@ -15,10 +15,10 @@ fireMode = 2
 
 # global parameters
 firePeriod = 2
-rebornPeriod = 60
+rebornPeriod = 17 # how many months to reborn
 
 def initialize(trackerSheet,fireModel):
-  global g, nextg, prices, maxCommodityYield, pos, test, df, fireMode
+  global g, nextg, prices, maxCommodityYield, pos, test, df, fireMode,labelDict
 
   if trackerSheet == 1:
     df = pd.read_excel('CaliforniaAlmondTracker.xlsx', usecols='A:AA')
@@ -29,9 +29,11 @@ def initialize(trackerSheet,fireModel):
 
   Nodes = list(range(len(df['Latitude']))) # number of counties (58)
   pos = {}
+  labelDict = {}
   R = 6371 # for conversion from lon/lat to cartercian
   for i in range(len(Nodes)):
     pos[Nodes[i]] = (df['Longitude'][i],df['Latitude'][i])
+    labelDict[Nodes[i]] = (df['County'][i])
     g.add_node(Nodes[i],pos=pos[i])
   
   for node in Nodes:
@@ -129,7 +131,7 @@ def initialize(trackerSheet,fireModel):
   
 def update():
     global g, nextg, pos, test,df, fireMode
-    
+    print(g.nodes[10])
     # Update network model
     curprev = 0
     nextg = g.copy()
@@ -164,16 +166,17 @@ def update():
               nextg.nodes[a][attributes] = df[attributes][a]
       
     g = nextg.copy()
-    test.append(g.nodes[12]['cattleYield'])
+    test.append(g.nodes[10]['cattleYield'])
 
-def observe():
-    global g, nextg, prices, maxCommodityYield, firePeriod, rebornPeriod, pos
+def observe(time):
+    global g, nextg, prices, maxCommodityYield, firePeriod, rebornPeriod, pos,labelDict
+
     colorGrad = firePeriod + rebornPeriod
     cla()
     nx.draw(g, cmap = cm.plasma, vmin = 0, vmax = 2,
             node_color = [(g.nodes[i]['onFire']+g.nodes[i]['rebornDuration'])/colorGrad for i in g.nodes],
-            pos = pos)
-    x = 'beta:' + str(beta)
+            pos = pos, labels = labelDict, with_labels = True)
+    x = 'timestep:' + str(time)
     plt.title(x)
     plt.show()
 
@@ -181,9 +184,8 @@ test = []
 
 initialize(pick,fireMode)
 for i in range(100):
-  print('i:',i)
   update()
   #plt.show() #show every step
   if i%10==0: 
-    observe() #show the plot every 10 steps
+    observe(i) #show the plot every 10 steps
 
