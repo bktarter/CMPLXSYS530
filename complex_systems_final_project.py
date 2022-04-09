@@ -9,14 +9,16 @@ import math
 import matplotlib.pyplot as plt
 
 # pick = which tracker
+# fireMode = 1) Predicted 2)Observed
 pick = 2
+fireMode = 2
 
 # global parameters
 firePeriod = 2
 rebornPeriod = 60
 
-def initialize(trackerSheet):
-  global g, nextg, prices, maxCommodityYield, pos, test, df
+def initialize(trackerSheet,fireModel):
+  global g, nextg, prices, maxCommodityYield, pos, test, df, fireMode
 
   if trackerSheet == 1:
     df = pd.read_excel('CaliforniaAlmondTracker.xlsx', usecols='A:AA')
@@ -76,9 +78,8 @@ def initialize(trackerSheet):
   #crop yield should be tons/acre
   
   #Capacity is determined by Node with Max Yield in any Commodity
-
-  #fireProb = df['Observed Fire Prob']
-  fireProb = df['Predicted Fire Prob']
+  if fireModel == 1: fireProb = df['ObservedfireProb']
+  if fireModel == 2: fireProb = df['PredictedfireProb']
   fireprob = np.array(fireProb) / np.sum(np.array(fireProb))
   
   if trackerSheet ==1:
@@ -127,7 +128,7 @@ def initialize(trackerSheet):
       g.nodes[initialFire_index][attributes] = 0
   
 def update():
-    global g, nextg, pos, test,df
+    global g, nextg, pos, test,df, fireMode
     
     # Update network model
     curprev = 0
@@ -135,8 +136,9 @@ def update():
     #nextg.pos = g.pos
 
     for a in g.nodes:
+
       if g.nodes[a]['firstFire'] == True and g.nodes[a]['fireDuration'] == 1: #able to catch on fire
-        nextg.nodes[a]['firstFire'] == False
+        nextg.nodes[a]['firstFire'] = False
         for b in g.neighbors(a):
           nextg.nodes[b]['onFire']  = 1
           nextg.nodes[b]['fireDuration']  = firePeriod
@@ -151,14 +153,18 @@ def update():
       if g.nodes[a]['rebornDuration'] > 0:
         nextg.nodes[a]['rebornDuration'] = g.nodes[a]['rebornDuration'] - 1
         if g.nodes[a]['rebornDuration'] == 1:
-          #nextg.nodes[a]['cattleYield'] = df['Cattle Yield'][a]
           for attributes in g.nodes[a]:
-            if attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
+            if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
+              #reassign fire probability when farm is reborn
+              if attributes == 'fireProb' and fireMode == 1:
+                attributes = 'Predicted' + attributes
+              if attributes == 'fireProb' and fireMode == 2:
+                attributes = 'Observed' + attributes
+
               nextg.nodes[a][attributes] = df[attributes][a]
       
     g = nextg.copy()
     test.append(g.nodes[12]['cattleYield'])
-    #g.pos = nextg.pos
 
 def observe():
     global g, nextg, prices, maxCommodityYield, firePeriod, rebornPeriod, pos
@@ -173,7 +179,7 @@ def observe():
 
 test = [] 
 
-initialize(pick)
+initialize(pick,fireMode)
 for i in range(100):
   print('i:',i)
   update()
