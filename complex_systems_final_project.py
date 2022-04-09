@@ -80,8 +80,8 @@ def initialize(trackerSheet,fireModel):
   #crop yield should be tons/acre
   
   #Capacity is determined by Node with Max Yield in any Commodity
-  if fireModel == 1: fireProb = df['PredictedfireProb']
-  if fireModel == 2: fireProb = df['ObservedfireProb']
+  if fireModel == 1: fireProb = df['ObservedfireProb']
+  if fireModel == 2: fireProb = df['PredictedfireProb']
   fireprob = np.array(fireProb) / np.sum(np.array(fireProb))
   
   if trackerSheet ==1:
@@ -99,6 +99,7 @@ def initialize(trackerSheet,fireModel):
                       'fireProb':fireProb[i],
                       'fireDuration':0 ,
                       'rebornDuration': 0,
+                      'Destroyed': False,
                       #'dairyYield':df['Dairy Yield'][i], # removed from sheet
                       'almondYield':df['almondYield'][i], 
                       'grapeYield':df['grapeYield'][i],
@@ -114,28 +115,28 @@ def initialize(trackerSheet,fireModel):
   #set maxCommodityYields
   for node in range(len(Nodes)):
        for attributes in g.nodes[node]:
-         if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireProb' and attributes != 'rebornDuration' and attributes != 'fireDuration':
+         if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireProb' and attributes != 'rebornDuration' and attributes != 'fireDuration' and attributes != 'Destroyed':
               att = 'max' + attributes
               if g.nodes[node][attributes] > maxCommodityYield[att]:
                 maxCommodityYield[att] = g.nodes[node][attributes]
   
   #where to start first fire
   initialFire_index = 10
-
   g.nodes[initialFire_index]['onFire'] = 1
+  g.nodes[initialFire_index]['Destroyed'] = True
   g.nodes[initialFire_index]['firstFire'] = True
   g.nodes[initialFire_index]['fireDuration'] = firePeriod
   g.nodes[initialFire_index]['rebornDuration'] = firePeriod + rebornPeriod
   for attributes in g.nodes[initialFire_index]:
-    if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
+    if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != ' fireProb' and attributes != 'fireDuration' and attributes != 'rebornDuration' and attributes != 'Destroyed':
       g.nodes[initialFire_index][attributes] = 0
   
 def update(itter):
-    global g, nextg, pos, test,df, fireMode,test
+    global g, nextg, pos, test,df, fireMode
     # Update network model
-    curprev = 0
     nextg = g.copy()
-    
+    #nextg.pos = g.pos
+
     for a in g.nodes:
       if g.nodes[a]['firstFire'] == True and g.nodes[a]['fireDuration'] == 1: #able to catch on fire
         nextg.nodes[a]['firstFire'] = False
@@ -143,6 +144,7 @@ def update(itter):
           nextg.nodes[b]['onFire']  = 1
           nextg.nodes[b]['fireDuration']  = firePeriod
           nextg.nodes[b]['rebornDuration']  = rebornPeriod + firePeriod
+          nextg.nodes[b]['Destroyed'] = True
 
       if g.nodes[a]['onFire'] == 1 and g.nodes[a]['fireDuration'] >= 1:
         nextg.nodes[a]['fireDuration']  = g.nodes[a]['fireDuration'] - 1
@@ -154,10 +156,54 @@ def update(itter):
         nextg.nodes[a]['rebornDuration'] = g.nodes[a]['rebornDuration'] - 1
         if g.nodes[a]['rebornDuration'] == 1:
           for attributes in g.nodes[a]:
-            if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
+            if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration' and attributes != 'Destroyed':
+              #reassign fire probability when farm is reborn
+              if attributes == 'fireProb' and fireMode == 1:
+                attributes = 'Predicted' + attributes
+              if attributes == 'fireProb' and fireMode == 2:
+                attributes = 'Observed' + attributes
+
               nextg.nodes[a][attributes] = df[attributes][a]
-  
+
+    ###############################################################   reallocate   ####################################################
+    cattleYield_destroyed = 0
+    almondYield_destroyed = 0
+    almondValue = np.array([])
+    almondIndex = np.array([])
+    cattleValue = np.array([])
+    cattleIndex = np.array([])
+
+
+    for a in g.nodes:
+      if nextg.nodes[a]['Destroyed'] == False:
+        almondValue = np.append(almondValue, nextg.nodes[a]['almondYield'])
+        almondIndex = np.append(almondIndex, a)
+        cattleValue = np.append(cattleValue, nextg.nodes[a]['cattleYield'])
+        cattleIndex = np.append(cattleIndex, a)
+
+    top4_index_almond = almondIndex[np.argpartition(almondValue, -4)[-4:]].astype(int)
+    top4_index_cattle = cattleIndex[np.argpartition(cattleValue, -4)[-4:]].astype(int)
+    top4_yield_almond = almondValue[np.argpartition(almondValue, -4)[-4:]]
+    top4_yield_cattle = cattleValue[np.argpartition(cattleValue, -4)[-4:]]
+
+    for a in g.nodes:
+      if g.nodes[a]['Destroyed'] == True:
+        nextg.nodes[a]['Destroyed'] = False
+
+      if nextg.nodes[a]['Destroyed'] == True:
+        cattleYield_destroyed = cattleYield_destroyed + g.nodes[a]['cattleYield']
+        almondYield_destroyed = almondYield_destroyed + g.nodes[a]['almondYield']
+        nextg.nodes[a]['cattleYield'] = 0
+        nextg.nodes[a]['almondYield'] = 0
+
+    for a in range(4):
+      nextg.nodes[top4_index_almond[a]]['almondYield'] += almondYield_destroyed * top4_yield_almond[a]/  (np.sum(top4_yield_almond))
+      nextg.nodes[top4_index_cattle[a]]['cattleYield'] += cattleYield_destroyed * top4_yield_cattle[a]/  (np.sum(top4_yield_cattle))
+    ######################################################### reallocate end #######################################################
+   
     g = nextg.copy()
+    #test.append(g.nodes[53]['cattleYield'])
+    test.append(almondYield_destroyed)
     fireStart(itter)
 
 def observe(time):
@@ -171,6 +217,7 @@ def observe(time):
     x = 'timestep:' + str(time)
     plt.title(x)
     plt.show()
+
 
 def fireStart(month):
   global g, df, fireMode
@@ -191,8 +238,10 @@ def fireStart(month):
             g.nodes[a][attributes] = 0
         observe(month)
 
-test = []
+test = [] 
 
 initialize(pick,fireMode)
 for i in range(100):
   update(i)
+
+print(test)
