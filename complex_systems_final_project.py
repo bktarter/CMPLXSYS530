@@ -11,6 +11,10 @@ import matplotlib.pyplot as plt
 # pick = which tracker
 pick = 2
 
+# global parameters
+firePeriod = 2
+rebornPeriod = 60
+
 def initialize(trackerSheet):
   global g, nextg, prices, maxCommodityYield, pos, test, df
 
@@ -88,6 +92,8 @@ def initialize(trackerSheet):
     attributes = {i: {'onFire':0 ,
                       'firstFire':False,
                       'fireProb':fireProb[i],
+                      'fireDuration':0 ,
+                      'rebornDuration': 0,
                       #'dairyYield':df['Dairy Yield'][i], # removed from sheet
                       'almondYield':df['Almond Yield'][i], 
                       'grapeYield':df['Grape Yield'][i],
@@ -103,7 +109,7 @@ def initialize(trackerSheet):
   #set maxCommodityYields
   for node in range(len(Nodes)):
        for attributes in g.nodes[node]:
-         if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireProb' and attributes != 'rebornDuration':
+         if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireProb' and attributes != 'rebornDuration' and attributes != 'fireDuration':
               att = 'max' + attributes
               if g.nodes[node][attributes] > maxCommodityYield[att]:
                 maxCommodityYield[att] = g.nodes[node][attributes]
@@ -112,8 +118,8 @@ def initialize(trackerSheet):
   initialFire_index = 10
   g.nodes[initialFire_index]['onFire'] = 1
   g.nodes[initialFire_index]['firstFire'] = True
-  g.nodes[initialFire_index]['fireDuration'] = 2
-  g.nodes[initialFire_index]['rebornDuration'] = 2 + 60
+  g.nodes[initialFire_index]['fireDuration'] = firePeriod
+  g.nodes[initialFire_index]['rebornDuration'] = firePeriod + rebornPeriod
   for attributes in g.nodes[initialFire_index]:
     if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
       g.nodes[initialFire_index][attributes] = 0
@@ -131,13 +137,13 @@ def update():
         nextg.nodes[a]['firstFire'] == False
         for b in g.neighbors(a):
           nextg.nodes[b]['onFire']  = 1
-          nextg.nodes[b]['fireDuration']  = 2
-          nextg.nodes[b]['rebornDuration']  = 60 + 2
+          nextg.nodes[b]['fireDuration']  = firePeriod
+          nextg.nodes[b]['rebornDuration']  = rebornPeriod + firePeriod
 
       if g.nodes[a]['onFire'] == 1 and g.nodes[a]['fireDuration'] >= 1:
         nextg.nodes[a]['fireDuration']  = g.nodes[a]['fireDuration'] - 1
 
-      if g.nodes[a]['fireDuration'] == 0:
+      if g.nodes[a]['onFire'] == 1 and g.nodes[a]['fireDuration'] == 0:
         nextg.nodes[a]['onFire'] = 0
 
       if g.nodes[a]['rebornDuration'] > 0:
@@ -156,26 +162,26 @@ def observe():
     global g, nextg, prices, maxCommodityYield
     cla()
     nx.draw(g, cmap = cm.plasma, vmin = 0, vmax = 2,
-            node_color = [g.nodes[i]['state'] for i in g.nodes],
-            pos = g.pos)
+            node_color = [(g.nodes[i]['onFire']+g.nodes[i]['rebornDuration'])/62 for i in g.nodes],
+            pos = pos)
     x = 'beta:' + str(beta)
     plt.title(x)
     plt.show()
 
-initialize(pick)
-update()
-observe()
+# initialize(pick)
+# update()
+# observe()
 
 test = [] 
 
 initialize(pick)
 observe()
 plt.show()
-for i in range(70):
+for i in range(10):
   update()
   observe()
   plt.show() #show every step
   # if i%10==0: plt.show() #show the plot every 10 steps
 
-plot(test)
-show()
+plt.plot(test)
+plt.show()
