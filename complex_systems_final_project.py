@@ -85,7 +85,9 @@ def initialize(trackerSheet):
      attributes = {i: {'onFire':0 ,
                       'firstFire':False,
                       'fireProb':fireProb[i],
-                      'almondYield':df['Almond Yield (tons/ac)'][i],
+                      'fireDuration':0 ,
+                      'rebornDuration': 0,
+                      'almondYield':df['almondYield'][i],
                       } for i in g.nodes()}
 
   if trackerSheet == 2:
@@ -95,14 +97,14 @@ def initialize(trackerSheet):
                       'fireDuration':0 ,
                       'rebornDuration': 0,
                       #'dairyYield':df['Dairy Yield'][i], # removed from sheet
-                      'almondYield':df['Almond Yield'][i], 
-                      'grapeYield':df['Grape Yield'][i],
-                      'pistachioYield':df['Pistachio Yield'][i],
-                      'cattleYield':df['Cattle Yield'][i], 
-                      'lettuceYield':df['Lettuce Yield'][i],
-                      'strawberryYield':df['Strawberry Yield'][i],
-                      'tomatoYield':df['Tomato Yield'][i],
-                      'walnutYield':df['Walnut Yield'][i]} for i in g.nodes()}
+                      'almondYield':df['almondYield'][i], 
+                      'grapeYield':df['grapeYield'][i],
+                      'pistachioYield':df['pistachioYield'][i],
+                      'cattleYield':df['cattleYield'][i], 
+                      'lettuceYield':df['lettuceYield'][i],
+                      'strawberryYield':df['strawberryYield'][i],
+                      'tomatoYield':df['tomatoYield'][i],
+                      'walnutYield':df['walnutYield'][i]} for i in g.nodes()}
     
   nx.set_node_attributes(g,attributes)
 	
@@ -159,29 +161,23 @@ def update():
     #g.pos = nextg.pos
 
 def observe():
-    global g, nextg, prices, maxCommodityYield
+    global g, nextg, prices, maxCommodityYield, firePeriod, rebornPeriod, pos
+    colorGrad = firePeriod + rebornPeriod
     cla()
     nx.draw(g, cmap = cm.plasma, vmin = 0, vmax = 2,
-            node_color = [(g.nodes[i]['onFire']+g.nodes[i]['rebornDuration'])/62 for i in g.nodes],
+            node_color = [(g.nodes[i]['onFire']+g.nodes[i]['rebornDuration'])/colorGrad for i in g.nodes],
             pos = pos)
     x = 'beta:' + str(beta)
     plt.title(x)
     plt.show()
 
-# initialize(pick)
-# update()
-# observe()
-
 test = [] 
 
 initialize(pick)
-observe()
-plt.show()
-for i in range(10):
+for i in range(100):
+  print('i:',i)
   update()
-  observe()
-  plt.show() #show every step
-  # if i%10==0: plt.show() #show the plot every 10 steps
+  #plt.show() #show every step
+  if i%10==0: 
+    observe() #show the plot every 10 steps
 
-plt.plot(test)
-plt.show()
