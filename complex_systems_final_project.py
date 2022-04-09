@@ -5,17 +5,19 @@ import numpy as np
 import random
 import pandas as pd
 import math
+import matplotlib.pyplot as plt
 
 # pick = which tracker
 pick = 1
 
 def initialize(trackerSheet):
-  global g, nextg, prev
+  global g, nextg, prices, maxCommodityYield, pos
 
   if trackerSheet == 1:
-    df = pd.read_excel('California Almond Tracker.xlsx', usecols='A:AA')
+    df = pd.read_excel('CMPLXSYS530\CaliforniaAlmondTracker.xlsx', usecols='A:AA')
   if trackerSheet == 2:
-    df = pd.read_excel('California County List.xlsx',usecols="A:AA")
+    df = pd.read_excel('CMPLXSYS530\CaliforniaCountyList.xlsx',usecols="A:AA")
+  
   g = nx.Graph()
 
   Nodes = list(range(len(df['Latitude']))) # number of counties (58)
@@ -24,8 +26,7 @@ def initialize(trackerSheet):
   for i in range(len(Nodes)):
     pos[Nodes[i]] = (df['Longitude'][i],df['Latitude'][i])
     g.add_node(Nodes[i],pos=pos[i])
-
-
+  
   for node in Nodes:
     borderList = []
     strToNum = ''
@@ -41,21 +42,6 @@ def initialize(trackerSheet):
     for county in borderList:
       e = (node,county-1) #when counted counties are listed 1-58 vs Node list 0-57
       g.add_edge(*e)
-
-  nx.draw(g,pos,node_size=10,node_color='b', edge_color='r')
-  
-  #list of attributes
-  #1) initial fire
-  #2) fire probability
-  #3) Dairy Yield
-  #4) Almond Yield
-  #5) Grape Yield
-  #6) Pistachio Yield
-  #7) Cattle Yield
-  #8) Lettuce Yield
-  #9) Strawberry Yield
-  #10) Tomato Yield
-  #11) Walnut Yield
 
   #All data gathered is from 2020
   #https://www.cdfa.ca.gov/Statistics/PDFs/2020_Ag_Stats_Review.pdf
@@ -92,7 +78,6 @@ def initialize(trackerSheet):
                       'firstFire':False,
                       'almondYield':df['Almond Yield (tons/ac)'][i],
                       } for i in g.nodes()}
-     nx.set_node_attributes(g,attributes)
 
   if trackerSheet == 2:
     attributes = {i: {'onFire':0 ,
@@ -107,21 +92,22 @@ def initialize(trackerSheet):
                       'strawberryYield':df['Strawberry Yield'][i],
                       'tomatoYield':df['Tomato Yield'][i],
                       'walnutYield':df['Walnut Yield'][i]} for i in g.nodes()}
+    
+  nx.set_node_attributes(g,attributes)
 	
   #set maxCommodityYields
   for node in range(len(Nodes)):
        for attributes in g.nodes[node]:
-         if attributes != 'pos':
-           if attributes != 'onFire':
-             if attributes != 'firstFire':
+         if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire':
               att = 'max' + attributes
               if g.nodes[node][attributes] > maxCommodityYield[att]:
                 maxCommodityYield[att] = g.nodes[node][attributes]
+  
 
   
 
 def update():
-    global g, nextg, stable, failure,totFail
+    global g, nextg, prices, maxCommodityYield
     
     # Update network model
     curprev = 0
@@ -140,7 +126,7 @@ def update():
     g.pos = nextg.pos
 
 def observe():
-    global g, prev, prev_mf, susc_mf
+    global g, nextg, prices, maxCommodityYield
     cla()
     nx.draw(g, cmap = cm.plasma, vmin = 0, vmax = 2,
             node_color = [g.nodes[i]['state'] for i in g.nodes],
@@ -150,3 +136,5 @@ def observe():
     plt.show()
 
 initialize(pick)
+nx.draw(g,pos, node_color = 'blue')
+plt.show()
