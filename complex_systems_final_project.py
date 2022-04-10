@@ -78,12 +78,11 @@ def initialize(trackerSheet,fireModel,wait):
   maxCommodityYield['maxwalnutYield'] = 0
   
   #crop yield should be tons/acre
+  #output is by the ton
   
   #Capacity is determined by Node with Max Yield in any Commodity
   if fireModel == 1: fireProb = df['PredictedfireProb']
   if fireModel == 2: fireProb = df['ObservedfireProb']
-
-  fireprob = np.array(fireProb) / np.sum(np.array(fireProb))
   
   if trackerSheet ==1:
      attributes = {i: {'onFire':0 ,
@@ -91,6 +90,7 @@ def initialize(trackerSheet,fireModel,wait):
                       'fireProb':fireProb[i],
                       'fireDuration':0 ,
                       'rebornDuration': 0,
+                      'almondOutput':df['almondOutput'][i],
                       'almondYield':df['almondYield'][i],
                       } for i in g.nodes()}
 
@@ -124,7 +124,7 @@ def initialize(trackerSheet,fireModel,wait):
   #where to start first fire
   for i in range(wait):
     update(i,False)
-  initialFire_index = 10
+  initialFire_index = random.randint(0,58)
   g.nodes[initialFire_index]['onFire'] = 1
   g.nodes[initialFire_index]['Destroyed'] = True
   g.nodes[initialFire_index]['firstFire'] = True
@@ -169,39 +169,40 @@ def update(itter,start=True):
               nextg.nodes[a][attributes] = df[attributes][a]
 
     ###############################################################   reallocate   ####################################################
-    cattleYield_destroyed = 0
+    #cattleYield_destroyed = 0
     almondYield_destroyed = 0
     almondValue = np.array([])
     almondIndex = np.array([])
-    cattleValue = np.array([])
-    cattleIndex = np.array([])
+    #cattleValue = np.array([])
+    #cattleIndex = np.array([])
 
 
     for a in g.nodes:
       if nextg.nodes[a]['Destroyed'] == False:
         almondValue = np.append(almondValue, nextg.nodes[a]['almondYield'])
         almondIndex = np.append(almondIndex, a)
-        cattleValue = np.append(cattleValue, nextg.nodes[a]['cattleYield'])
-        cattleIndex = np.append(cattleIndex, a)
+        #cattleValue = np.append(cattleValue, nextg.nodes[a]['cattleYield'])
+        #cattleIndex = np.append(cattleIndex, a)
 
     top4_index_almond = almondIndex[np.argpartition(almondValue, -4)[-4:]].astype(int)
-    top4_index_cattle = cattleIndex[np.argpartition(cattleValue, -4)[-4:]].astype(int)
+    #top4_index_cattle = cattleIndex[np.argpartition(cattleValue, -4)[-4:]].astype(int)
     top4_yield_almond = almondValue[np.argpartition(almondValue, -4)[-4:]]
-    top4_yield_cattle = cattleValue[np.argpartition(cattleValue, -4)[-4:]]
+    #top4_yield_cattle = cattleValue[np.argpartition(cattleValue, -4)[-4:]]
 
     for a in g.nodes:
       if g.nodes[a]['Destroyed'] == True:
         nextg.nodes[a]['Destroyed'] = False
 
       if nextg.nodes[a]['Destroyed'] == True:
-        cattleYield_destroyed = cattleYield_destroyed + g.nodes[a]['cattleYield']
+        #cattleYield_destroyed = cattleYield_destroyed + g.nodes[a]['cattleYield']
         almondYield_destroyed = almondYield_destroyed + g.nodes[a]['almondYield']
-        nextg.nodes[a]['cattleYield'] = 0
+        #nextg.nodes[a]['cattleYield'] = 0
         nextg.nodes[a]['almondYield'] = 0
 
     for a in range(4):
       nextg.nodes[top4_index_almond[a]]['almondYield'] += almondYield_destroyed * top4_yield_almond[a]/  (np.sum(top4_yield_almond))
-      nextg.nodes[top4_index_cattle[a]]['cattleYield'] += cattleYield_destroyed * top4_yield_cattle[a]/  (np.sum(top4_yield_cattle))
+      #nextg.nodes[top4_index_cattle[a]]['cattleYield'] += cattleYield_destroyed * top4_yield_cattle[a]/  (np.sum(top4_yield_cattle))
+    
     ######################################################### reallocate end #######################################################
    
     g = nextg.copy()
@@ -220,7 +221,6 @@ def observe(time):
     x = 'timestep:' + str(time)
     plt.title(x)
     plt.show()
-
 
 def fireStart(month,start):
   global g, df, fireMode
