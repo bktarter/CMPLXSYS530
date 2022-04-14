@@ -13,9 +13,9 @@ fireMode = 2
 
 # global parameters
 firePeriod = 2
-rebornPeriod = 17 # how many months to reborn
+rebornPeriod = 60 # how many months to reborn
 
-def initialize(fireModel,wait):
+def initialize(fireModel):
   global g, nextg, prices, maxCommodityYield, pos,OutputAllCounties, df, fireMode,labelDict,YieldCap
 
   
@@ -81,7 +81,7 @@ def initialize(fireModel,wait):
   nx.set_node_attributes(g,attributes)
   
 def update(itter):
-    global g, nextg, pos, OutputAllCounties ,df, fireMode, YieldCap
+    global g, nextg, pos, OutputAllCounties ,df, fireMode, YieldCap, prices
     # Update network model
     nextg = g.copy()
 
@@ -146,10 +146,37 @@ def update(itter):
         nextg.nodes[a]['almondOutput'] = 0
 
     for a in range(4):
-      nextg.nodes[top4_index_almond[a]]['almondOutput'] += almondYield_destroyed*0.25 * top4_yield_almond[a]/  (np.sum(top4_yield_almond))
+      nextg.nodes[top4_index_almond[a]]['almondOutput'] += almondYield_destroyed*0.2 * top4_yield_almond[a]/(np.sum(top4_yield_almond))
       
     ######################################################### reallocate end #######################################################
-        
+    
+    ######################################################### price track start ####################################################
+    almondPrice = prices['almondPrice']
+    totalOutput = 0
+    newTotalOutput = 0 
+    for a in g.nodes():
+      if g.nodes[a]['almondOutput'] > 0 and g.nodes[a]['almondOutput'] != 'nan':
+        totalOutput += g.nodes[a]['almondOutput']
+      
+    for a in nextg.nodes():
+      if nextg.nodes[a]['almondOutput'] > 0 and nextg.nodes[a]['almondOutput'] != 'nan':
+        newTotalOutput += nextg.nodes[a]['almondOutput']
+
+    divisor = totalOutput
+    if divisor == 0: # prevents division by zero
+      divisor = 1
+
+    change = (newTotalOutput-totalOutput)/divisor
+    almondPrice -= almondPrice*change
+
+    if itter > 0 and itter % 12 == 0: #not time step 0 & 12 months have passed
+      almondPrice *= 1.02 #account for inflation
+
+    priceOverTime.append(almondPrice)
+    prices['almondPrice']= almondPrice
+    ######################################################### price track end ######################################################
+
+
     g = nextg.copy()
     #test.append(almondYield_destroyed)
     #test1.append(g.nodes[49]['almondYield'])
@@ -184,15 +211,22 @@ def fireStart(month):
         for attributes in g.nodes[a]:
           if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
             g.nodes[a][attributes] = 0
-          
+  
+
+priceOverTime = [2.43]
 YieldCap = 3.06
-OutputAllCounties = np.zeros((58,100))
-delay = 5
-initialize(fireMode,delay)
-for i in range(delay,100):
+
+Time = 100
+OutputAllCounties = np.zeros((58,Time))
+initialize(fireMode)
+
+for i in range(Time):
   update(i)
 
-plt.figure()
+plt.subplot(2, 1, 1)
 for i in range(58):
   plt.plot(OutputAllCounties[i,:])
+
+plt.subplot(2, 1, 2)
+plt.plot(list(range(Time+1)),priceOverTime)
 plt.show()
