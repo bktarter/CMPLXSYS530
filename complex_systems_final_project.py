@@ -146,6 +146,8 @@ def update(itter,start=True):
 
     for a in g.nodes:
        ######################################################### update maxyield ##########################
+      if itter % 12 == 0 and itter != 0:
+        YieldCap = YieldCap * (1 + 0.0147)
       # if g.nodes[a]['almondAcreage'] != 0:
       #   if g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage'] > YieldCap:
       #     YieldCap = g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage']
