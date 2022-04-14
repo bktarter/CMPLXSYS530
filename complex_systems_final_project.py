@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 # pick = which tracker
 # fireMode = 1) Predicted 2)Observed
-pick = 2
+pick = 1
 fireMode = 2
 
 # global parameters
@@ -18,7 +18,7 @@ firePeriod = 2
 rebornPeriod = 17 # how many months to reborn
 
 def initialize(trackerSheet,fireModel,wait):
-  global g, nextg, prices, maxCommodityYield, pos, test, df, fireMode,labelDict
+  global g, nextg, prices, maxCommodityYield, pos,OutputAllCounties, df, fireMode,labelDict,YieldCap
 
   if trackerSheet == 1:
     df = pd.read_excel('CaliforniaAlmondTracker.xlsx', usecols='A:AA')
@@ -90,7 +90,10 @@ def initialize(trackerSheet,fireModel,wait):
                       'fireProb':fireProb[i],
                       'fireDuration':0 ,
                       'rebornDuration': 0,
+                      'Destroyed': False,
                       'almondOutput':df['almondOutput'][i],
+                      'almondAcreage':df['Almond Acreage'][i],
+                      'almondOutputMax': 0,
                       'almondYield':df['almondYield'][i],
                       } for i in g.nodes()}
 
@@ -114,33 +117,39 @@ def initialize(trackerSheet,fireModel,wait):
   nx.set_node_attributes(g,attributes)
 	
   #set maxCommodityYields
-  for node in range(len(Nodes)):
-       for attributes in g.nodes[node]:
-         if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireProb' and attributes != 'rebornDuration' and attributes != 'fireDuration' and attributes != 'Destroyed':
-              att = 'max' + attributes
-              if g.nodes[node][attributes] > maxCommodityYield[att]:
-                maxCommodityYield[att] = g.nodes[node][attributes]
+  #for node in range(len(Nodes)):
+  #     for attributes in g.nodes[node]:
+  #       if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireProb' and attributes != 'rebornDuration' and attributes != 'fireDuration' and attributes != 'Destroyed':
+  #            att = 'max' + attributes
+  #            if g.nodes[node][attributes] > maxCommodityYield[att]:
+  #              maxCommodityYield[att] = g.nodes[node][attributes]
+
   
   #where to start first fire
-  for i in range(wait):
-    update(i,False)
-  initialFire_index = random.randint(0,58)
-  g.nodes[initialFire_index]['onFire'] = 1
-  g.nodes[initialFire_index]['Destroyed'] = True
-  g.nodes[initialFire_index]['firstFire'] = True
-  g.nodes[initialFire_index]['fireDuration'] = firePeriod
-  g.nodes[initialFire_index]['rebornDuration'] = firePeriod + rebornPeriod
-  for attributes in g.nodes[initialFire_index]:
-    if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != ' fireProb' and attributes != 'fireDuration' and attributes != 'rebornDuration' and attributes != 'Destroyed':
-      g.nodes[initialFire_index][attributes] = 0
+  # for i in range(wait):
+  #   update(i,False)
+  # initialFire_index = random.randint(0,58)
+  # g.nodes[initialFire_index]['onFire'] = 1
+  # g.nodes[initialFire_index]['Destroyed'] = True
+  # g.nodes[initialFire_index]['firstFire'] = True
+  # g.nodes[initialFire_index]['fireDuration'] = firePeriod
+  # g.nodes[initialFire_index]['rebornDuration'] = firePeriod + rebornPeriod
+  # for attributes in g.nodes[initialFire_index]:
+  #   if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != ' fireProb' and attributes != 'fireDuration' and attributes != 'rebornDuration' and attributes != 'Destroyed':
+  #     g.nodes[initialFire_index][attributes] = 0
   
 def update(itter,start=True):
-    global g, nextg, pos, test,df, fireMode
+    global g, nextg, pos, OutputAllCounties ,df, fireMode, YieldCap
     # Update network model
     nextg = g.copy()
     #nextg.pos = g.pos
 
     for a in g.nodes:
+       ######################################################### update maxyield ##########################
+      # if g.nodes[a]['almondAcreage'] != 0:
+      #   if g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage'] > YieldCap:
+      #     YieldCap = g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage']
+       ######################################################## end update maxyield ######################### 
       if g.nodes[a]['firstFire'] == True and g.nodes[a]['fireDuration'] == 1: #able to catch on fire
         nextg.nodes[a]['firstFire'] = False
         for b in g.neighbors(a):
@@ -166,7 +175,9 @@ def update(itter,start=True):
               if attributes == 'fireProb' and fireMode == 2:
                 attributes = 'Observed' + attributes
 
-              nextg.nodes[a][attributes] = df[attributes][a]
+              nextg.nodes[a][attributes] = g.nodes[a]['almondOutputMax']
+      if g.nodes[a]['almondOutputMax'] < g.nodes[a]['almondOutput']:
+        nextg.nodes[a]['almondOutputMax'] = g.nodes[a]['almondOutput']
 
     ###############################################################   reallocate   ####################################################
     #cattleYield_destroyed = 0
@@ -178,11 +189,14 @@ def update(itter,start=True):
 
 
     for a in g.nodes:
-      if nextg.nodes[a]['Destroyed'] == False:
-        almondValue = np.append(almondValue, nextg.nodes[a]['almondYield'])
-        almondIndex = np.append(almondIndex, a)
-        #cattleValue = np.append(cattleValue, nextg.nodes[a]['cattleYield'])
-        #cattleIndex = np.append(cattleIndex, a)
+      if nextg.nodes[a]['Destroyed'] == False and  g.nodes[a]['almondAcreage'] != 0:
+        #print(YieldCap)
+        #print(g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage'])
+        if g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage'] <= YieldCap:
+          almondValue = np.append(almondValue, nextg.nodes[a]['almondOutput'])
+          almondIndex = np.append(almondIndex, a)
+          #cattleValue = np.append(cattleValue, nextg.nodes[a]['cattleYield'])
+          #cattleIndex = np.append(cattleIndex, a)
 
     top4_index_almond = almondIndex[np.argpartition(almondValue, -4)[-4:]].astype(int)
     #top4_index_cattle = cattleIndex[np.argpartition(cattleValue, -4)[-4:]].astype(int)
@@ -195,19 +209,23 @@ def update(itter,start=True):
 
       if nextg.nodes[a]['Destroyed'] == True:
         #cattleYield_destroyed = cattleYield_destroyed + g.nodes[a]['cattleYield']
-        almondYield_destroyed = almondYield_destroyed + g.nodes[a]['almondYield']
+        almondYield_destroyed = almondYield_destroyed + g.nodes[a]['almondOutput']
         #nextg.nodes[a]['cattleYield'] = 0
-        nextg.nodes[a]['almondYield'] = 0
+        nextg.nodes[a]['almondOutput'] = 0
 
     for a in range(4):
-      nextg.nodes[top4_index_almond[a]]['almondYield'] += almondYield_destroyed * top4_yield_almond[a]/  (np.sum(top4_yield_almond))
+      nextg.nodes[top4_index_almond[a]]['almondOutput'] += almondYield_destroyed*0.2 * top4_yield_almond[a]/  (np.sum(top4_yield_almond))
       #nextg.nodes[top4_index_cattle[a]]['cattleYield'] += cattleYield_destroyed * top4_yield_cattle[a]/  (np.sum(top4_yield_cattle))
     
     ######################################################### reallocate end #######################################################
-   
+        
     g = nextg.copy()
     #test.append(g.nodes[53]['cattleYield'])
-    test.append(almondYield_destroyed)
+    #test.append(almondYield_destroyed)
+    #test1.append(g.nodes[49]['almondYield'])
+    for a in g.nodes:
+      OutputAllCounties[a,itter] = g.nodes[a]['almondOutput']
+
     fireStart(itter,start)
 
 def observe(time):
@@ -240,12 +258,16 @@ def fireStart(month,start):
           for attributes in g.nodes[a]:
             if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
               g.nodes[a][attributes] = 0
-          observe(month)
+          #observe(month)
 
-test = [] 
+YieldCap = 3.06
+OutputAllCounties = np.zeros((58,100))
 delay = 5
 initialize(pick,fireMode,delay)
 for i in range(delay,100):
   update(i)
 
-print(test)
+plt.figure()
+for i in range(58):
+  plt.plot(OutputAllCounties[i,:])
+plt.show()
