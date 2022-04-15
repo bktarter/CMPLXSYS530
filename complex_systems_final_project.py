@@ -1,22 +1,14 @@
 from pylab import *
 from IPython import display
 import networkx as nx
-import time
 import numpy as np
 import random
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
 
-# fireMode = 1) Predicted 2)Observed
-fireMode = 2
-
-# global parameters
-firePeriod = 2
-rebornPeriod = 60 # how many months to reborn
-
 def initialize(fireModel):
-  global g, nextg, prices, maxCommodityYield, pos,OutputAllCounties, df, fireMode,labelDict,YieldCap
+  global g, nextg, prices, maxCommodityYield, pos,OutputAllCounties, df, fireMode,labelDict
 
   
   df = pd.read_excel('CaliforniaAlmondTracker.xlsx', usecols='A:AA')
@@ -56,7 +48,8 @@ def initialize(fireModel):
 
 
   maxCommodityYield = {}
-  maxCommodityYield['maxalmondYield'] = 0
+  maxCommodityYield['maxalmondYield'] = 3.06
+  
   
   #crop yield should be tons/acre
   #output is by the ton
@@ -81,14 +74,14 @@ def initialize(fireModel):
   nx.set_node_attributes(g,attributes)
   
 def update(itter):
-    global g, nextg, pos, OutputAllCounties ,df, fireMode, YieldCap, prices
+    global g, nextg, pos, OutputAllCounties ,df, fireMode, maxCommodityYield, prices
     # Update network model
     nextg = g.copy()
-
+    YieldCap = maxCommodityYield['maxalmondYield']
     for a in g.nodes:
        ######################################################### update maxyield ##########################
       if itter % 12 == 0 and itter != 0:
-        YieldCap = YieldCap * (1 + 0.0147)
+        YieldCap *= 1.0147
 
        ######################################################## end update maxyield ######################### 
       if g.nodes[a]['firstFire'] == True and g.nodes[a]['fireDuration'] == 1: #able to catch on fire
@@ -178,8 +171,6 @@ def update(itter):
 
 
     g = nextg.copy()
-    #test.append(almondYield_destroyed)
-    #test1.append(g.nodes[49]['almondYield'])
     for a in g.nodes:
       OutputAllCounties[a,itter] = g.nodes[a]['almondOutput']
 
@@ -212,9 +203,13 @@ def fireStart(month):
           if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
             g.nodes[a][attributes] = 0
   
+# fireMode = 1) Predicted 2)Observed
+fireMode = 2
 
+# global parameters
+firePeriod = 2
+rebornPeriod = 60 # how many months to reborn
 priceOverTime = [2.43]
-YieldCap = 3.06
 
 Time = 100
 OutputAllCounties = np.zeros((58,Time))
