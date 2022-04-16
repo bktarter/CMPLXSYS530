@@ -148,6 +148,7 @@ def update(itter):
     almondPrice = prices['almondPrice']
     totalOutput = 0
     newTotalOutput = 0 
+    
     for a in g.nodes():
       if g.nodes[a]['almondOutput'] > 0 and g.nodes[a]['almondOutput'] != 'nan':
         totalOutput += g.nodes[a]['almondOutput']
@@ -160,8 +161,23 @@ def update(itter):
     if divisor == 0: # prevents division by zero
       divisor = 1
 
+    slowConverge = 0.4
     change = (newTotalOutput-totalOutput)/divisor
-    almondPrice -= almondPrice*change
+    
+    if change > -0.5:
+      if change > 2:
+        print('spike change, itter:',itter)
+        almondPrice /= 2
+      else:
+        change*= slowConverge
+        almondPrice -= almondPrice*change # normal behavior
+    if change < -0.25:
+      print('change:', change, 'itter:', itter)
+      almondPrice*= -10*change #if all crops burn price increases 10x
+      print('new almond price:', almondPrice)
+
+    if almondPrice <= 0:
+      almondPrice = 0.01
 
     if itter > 0 and itter % 12 == 0: #not time step 0 & 12 months have passed
       almondPrice *= 1.02 #account for inflation
@@ -238,7 +254,7 @@ firePeriod = 2
 rebornPeriod = 60 # how many months to reborn
 priceOverTime = [2.43]
 YieldCap = 3.06
-Time = 250
+Time = 240
 OutputAllCounties = np.zeros((58,Time))
 initialize(fireMode)
 
@@ -252,3 +268,5 @@ for i in range(58):
 plt.subplot(2, 1, 2)
 plt.plot(list(range(Time+1)),priceOverTime)
 plt.show()
+
+print('final price:',prices['almondPrice'])
