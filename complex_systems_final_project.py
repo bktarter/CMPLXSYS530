@@ -166,15 +166,15 @@ def update(itter):
     
     if change > -0.5:
       if change > 2:
-        print('spike change, itter:',itter)
+        #print('spike change, itter:',itter)
         almondPrice /= 2
       else:
         change*= slowConverge
         almondPrice -= almondPrice*change # normal behavior
     if change < -0.25:
-      print('change:', change, 'itter:', itter)
+      #print('change:', change, 'itter:', itter)
       almondPrice*= -10*change #if all crops burn price increases 10x
-      print('new almond price:', almondPrice)
+      #print('new almond price:', almondPrice)
 
     if almondPrice <= 0:
       almondPrice = 0.01
@@ -257,16 +257,20 @@ YieldCap = 3.06
 Time = 240
 OutputAllCounties = np.zeros((58,Time))
 initialize(fireMode)
-
+butter = 'final price:' +str(prices['almondPrice'])
 for i in range(Time):
   update(i)
 
 plt.subplot(2, 1, 1)
 for i in range(58):
   plt.plot(OutputAllCounties[i,:])
+plt.title('Almonds Production over Time')
+plt.ylabel('Almonds Produced (tons)')
 
 plt.subplot(2, 1, 2)
 plt.plot(list(range(Time+1)),priceOverTime)
+plt.xlabel('time (months)')
+plt.ylabel('price ($/lb)')
+plt.text(Time-50,max(priceOverTime)-0.1*max(priceOverTime),butter,color = 'g')
 plt.show()
 
-print('final price:',prices['almondPrice'])
