@@ -65,6 +65,7 @@ def initialize(fireModel):
                    'fireDuration':0 ,
                    'rebornDuration': 0,
                    'Destroyed': False,
+                   'BeyondYield': False,
                    'almondOutput':df['almondOutput'][i],
                    'almondAcreage':df['Almond Acreage'][i],
                    'almondOutputMax': 0,
@@ -74,10 +75,10 @@ def initialize(fireModel):
   nx.set_node_attributes(g,attributes)
   
 def update(itter):
-    global g, nextg, pos, OutputAllCounties ,df, fireMode, maxCommodityYield, prices
+    global g, nextg, pos, OutputAllCounties ,df, fireMode, maxCommodityYield, prices, YieldCap
     # Update network model
     nextg = g.copy()
-    YieldCap = maxCommodityYield['maxalmondYield']
+    #YieldCap = maxCommodityYield['maxalmondYield']
     for a in g.nodes:
        ######################################################### update maxyield ##########################
       if itter % 12 == 0 and itter != 0:
@@ -102,45 +103,45 @@ def update(itter):
         nextg.nodes[a]['rebornDuration'] = g.nodes[a]['rebornDuration'] - 1
         if g.nodes[a]['rebornDuration'] == 1:
           for attributes in g.nodes[a]:
-            if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration' and attributes != 'Destroyed':
+            if attributes != 'pos' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration' and attributes != 'Destroyed' and attributes != 'BeyondYield':
               #reassign fire probability when farm is reborn
               if attributes == 'fireProb' and fireMode == 1:
                 attributes = 'Predicted' + attributes
               if attributes == 'fireProb' and fireMode == 2:
                 attributes = 'Observed' + attributes
 
-              nextg.nodes[a][attributes] = g.nodes[a]['almondOutputMax']
+          nextg.nodes[a]['almondOutput'] = g.nodes[a]['almondOutputMax']
       if g.nodes[a]['almondOutputMax'] < g.nodes[a]['almondOutput']:
         nextg.nodes[a]['almondOutputMax'] = g.nodes[a]['almondOutput']
 
     ###############################################################   reallocate   ####################################################
-    almondYield_destroyed = 0
-    almondValue = np.array([])
-    almondIndex = np.array([])
-
-
-    for a in g.nodes:
-      if nextg.nodes[a]['Destroyed'] == False and  g.nodes[a]['almondAcreage'] != 0:
-  
-        if g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage'] <= YieldCap:
-          almondValue = np.append(almondValue, nextg.nodes[a]['almondOutput'])
-          almondIndex = np.append(almondIndex, a)
-    
-
-    top4_index_almond = almondIndex[np.argpartition(almondValue, -4)[-4:]].astype(int)
-    top4_yield_almond = almondValue[np.argpartition(almondValue, -4)[-4:]]
-
+    almond_destroyed = 0
     for a in g.nodes:
       if g.nodes[a]['Destroyed'] == True:
         nextg.nodes[a]['Destroyed'] = False
 
       if nextg.nodes[a]['Destroyed'] == True:
-        almondYield_destroyed = almondYield_destroyed + g.nodes[a]['almondOutput']
+        almond_destroyed = almond_destroyed + g.nodes[a]['almondOutput']
         nextg.nodes[a]['almondOutput'] = 0
+      if nextg.nodes[a]['almondAcreage']!=0 and nextg.nodes[a]['almondOutput']/nextg.nodes[a]['almondAcreage'] > YieldCap:
+        nextg.nodes[a]['BeyondYield'] = False
 
-    for a in range(4):
-      nextg.nodes[top4_index_almond[a]]['almondOutput'] += almondYield_destroyed*0.2 * top4_yield_almond[a]/(np.sum(top4_yield_almond))
-      
+    while True:
+      top4_index_almond, top4_output_almond, num = Top4()
+      if num == 0:
+        print('Destroyed output exceeds the total yield cap')
+        break
+      Reallocate(top4_index_almond, top4_output_almond, almond_destroyed, num)
+      almond_destroyed = 0
+      flag = 0
+      for a in range(num):
+        if nextg.nodes[top4_index_almond[a]]['almondOutput']/nextg.nodes[top4_index_almond[a]]['almondAcreage'] > YieldCap:
+          almond_destroyed += nextg.nodes[top4_index_almond[a]]['almondOutput'] - nextg.nodes[top4_index_almond[a]]['almondAcreage'] * YieldCap
+          nextg.nodes[top4_index_almond[a]]['almondOutput'] = nextg.nodes[top4_index_almond[a]]['almondAcreage'] * YieldCap
+          nextg.nodes[top4_index_almond[a]]['BeyondYield'] = True
+          flag += 1
+      if flag == 0:
+        break
     ######################################################### reallocate end #######################################################
     
     ######################################################### price track start ####################################################
@@ -199,10 +200,36 @@ def fireStart(month):
         g.nodes[a]['firstFire'] = True
         g.nodes[a]['fireDuration'] = firePeriod
         g.nodes[a]['rebornDuration'] = firePeriod + rebornPeriod
+        g.nodes[a]['destroyed'] = True
         for attributes in g.nodes[a]:
           if attributes != 'pos' and attributes != 'fireProb' and attributes != 'onFire' and attributes != 'firstFire' and attributes != 'fireDuration' and attributes != 'rebornDuration':
             g.nodes[a][attributes] = 0
   
+def Top4():
+  global g, nextg
+
+  almondValue = np.array([])
+  almondIndex = np.array([])
+  for a in g.nodes:
+    if nextg.nodes[a]['Destroyed'] == False and g.nodes[a]['almondAcreage'] != 0 and nextg.nodes[a]['BeyondYield'] == False:
+      if g.nodes[a]['almondOutput']/g.nodes[a]['almondAcreage'] <= YieldCap:
+        almondValue = np.append(almondValue, nextg.nodes[a]['almondOutput'])
+        almondIndex = np.append(almondIndex, a)
+  if np.shape(almondValue)[0] >= 4:
+    top4_index_almond = almondIndex[np.argpartition(almondValue, -4)[-4:]].astype(int)
+    top4_output_almond = almondValue[np.argpartition(almondValue, -4)[-4:]]
+    return top4_index_almond, top4_output_almond,4
+  else:
+    top4_index_almond = almondIndex
+    top4_output_almond = almondValue
+    return top4_index_almond, top4_output_almond,np.shape(almondValue)[0]
+
+def Reallocate(top4_index_almond, top4_output_almond, almond_destroyed, num):
+  global g, nextg
+
+  for a in range(num):
+    nextg.nodes[top4_index_almond[a]]['almondOutput'] += almond_destroyed * top4_output_almond[a]/  (np.sum(top4_output_almond))
+
 # fireMode = 1) Predicted 2)Observed
 fireMode = 2
 
@@ -210,8 +237,8 @@ fireMode = 2
 firePeriod = 2
 rebornPeriod = 60 # how many months to reborn
 priceOverTime = [2.43]
-
-Time = 100
+YieldCap = 3.06
+Time = 250
 OutputAllCounties = np.zeros((58,Time))
 initialize(fireMode)
 
