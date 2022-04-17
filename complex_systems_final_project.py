@@ -257,13 +257,18 @@ YieldCap = 3.06
 Time = 240
 OutputAllCounties = np.zeros((58,Time))
 initialize(fireMode)
-butter = 'final price:' +str(prices['almondPrice'])
+
 for i in range(Time):
   update(i)
 
 plt.subplot(2, 1, 1)
 for i in range(58):
   plt.plot(OutputAllCounties[i,:])
+
+price = prices['almondPrice']
+x = f'{price:.3}'
+finalprice = 'final price: $' + str(x)
+
 plt.title('Almonds Production over Time')
 plt.ylabel('Almonds Produced (tons)')
 
@@ -271,6 +276,7 @@ plt.subplot(2, 1, 2)
 plt.plot(list(range(Time+1)),priceOverTime)
 plt.xlabel('time (months)')
 plt.ylabel('price ($/lb)')
-plt.text(Time-50,max(priceOverTime)-0.1*max(priceOverTime),butter,color = 'g')
+
+plt.text(Time-60,max(priceOverTime)-0.1*max(priceOverTime),finalprice,color = 'g')
 plt.show()
 
